@@ -158,3 +158,11 @@ export function chunkRanges(text, chunks) {
   }
   return merged;
 }
+
+// Splits a reply into sentences for 逐句跟述. Abbreviations such as "Mr." or "e.g." do not end a sentence.
+const ABBREVIATIONS = /\b(Mr|Mrs|Ms|Dr|Prof|St|vs|etc|e\.g|i\.e|a\.m|p\.m)\./gi;
+export function splitSentences(text) {
+  const guarded = String(text ?? "").replace(ABBREVIATIONS, (m) => m.replace(/\./g, "\u0000"));
+  const parts = guarded.match(/[^.!?…]+(?:[.!?…]+["'”’)\]]*|$)/g) || [];
+  return parts.map((p) => p.replace(/\u0000/g, ".").trim()).filter((p) => /[a-z0-9]/i.test(p));
+}

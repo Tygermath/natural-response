@@ -1,4 +1,4 @@
-import { $, state, saveDb, situationOf, fillSelect, valueLabel, filterOptions, situationOptions, views, showView, speak, stopAudio, listen, stopListening, isListening, finishListening, canListen, tone, pendingCount } from "./app.mjs";
+import { $, state, saveDb, situationOf, fillSelect, valueLabel, filterOptions, situationOptions, views, showView, speak, shadow, stopShadow, getRate, setRate, stopAudio, listen, stopListening, isListening, finishListening, canListen, tone, pendingCount } from "./app.mjs";
 import { filterRecords, compare, chunkRanges } from "./model.mjs";
 
 let deck = [], index = 0, flipped = false;
@@ -24,8 +24,29 @@ function deal() {
   render();
 }
 
+function showRate() { $("flash-rate-value").textContent = getRate().toFixed(1) + "×"; }
+
+// 逐句跟述 button: tap to start, tap again to stop. Changing or flipping the card also stops it.
+function setShadowing(on) {
+  const b = $("flash-shadow");
+  b.setAttribute("aria-pressed", String(on));
+  b.replaceChildren(on ? "停止跟述" : "逐句跟述", Object.assign(document.createElement("span"), { className: "en", textContent: on ? "Stop" : "Shadow" }));
+}
+function toggleShadow() {
+  const r = card();
+  if (!r) return;
+  if ($("flash-shadow").getAttribute("aria-pressed") === "true") { stopShadow(); window.speechSynthesis?.cancel(); setShadowing(false); status(""); return; }
+  stopListening();
+  setShadowing(true);
+  shadow(r.reply, r.id, {
+    onStep: (i, total, phase) => status(phase === "speak" ? `第 ${i + 1}/${total} 句：聽 Listen` : `第 ${i + 1}/${total} 句：換你說 Your turn`),
+    onDone: () => { setShadowing(false); status("跟述完成。Done."); },
+    onError: (msg) => { setShadowing(false); status(msg); },
+  });
+}
 function setFlipped(value) {
   flipped = value;
+  setShadowing(false);
   $("flash-card").classList.toggle("flipped", value);
   $("flash-front").setAttribute("aria-hidden", String(value));
   $("flash-back").setAttribute("aria-hidden", String(!value));
@@ -121,6 +142,8 @@ function mic() {
   if (Date.now() - micStartedAt < 800) return;
   if (isListening()) return finishListening();
   micStartedAt = Date.now();
+  // The microphone would pick up the app's own voice; stop shadowing first.
+  if ($("flash-shadow").getAttribute("aria-pressed") === "true") { stopShadow(); window.speechSynthesis?.cancel(); setShadowing(false); }
   $("flash-answer").value = "";
   $("flash-result").replaceChildren();
   status("");
@@ -186,9 +209,11 @@ $("flash-next").onclick = () => go(1);
 $("flash-mic").onclick = mic;
 $("flash-check").onclick = check;
 $("flash-mastered").onchange = setMastered;
-document.querySelectorAll("#flash .speech button").forEach((b) => {
-  b.onclick = () => { const r = card(); if (r) { stopListening(); speak(r.reply, Number(b.dataset.rate), r.id, status); } };
-});
+$("flash-listen").onclick = () => { const r = card(); if (r) { stopListening(); setShadowing(false); speak(r.reply, r.id, status); } };
+$("flash-shadow").onclick = toggleShadow;
+$("flash-rate").value = getRate();
+showRate();
+$("flash-rate").oninput = () => { setRate(Number($("flash-rate").value)); showRate(); };
 $("flash-edit").onclick = () => { const r = card(); if (r) views.corpus.openRecord(r.id); };
 $("flash-empty-action").onclick = () => (state.db.records.length ? views.corpus.openPending() : showView("create"));
 document.addEventListener("keydown", (e) => {

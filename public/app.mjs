@@ -1,5 +1,5 @@
 // Shared client state and helpers. Views import this; main.mjs wires them together.
-import { valuesOf, UNSET } from "./model.mjs";
+import { valuesOf, UNSET, splitSentences } from "./model.mjs";
 import { createStorage } from "./storage.mjs";
 import { availableProfiles } from "./voices.mjs";
 
@@ -75,23 +75,42 @@ export const hasUnsavedEdits = () => Object.values(views).some((v) => v.dirty?.(
 // Four voices (US/UK × female/male, see voices.mjs) rotate between cards; a card keeps its voice.
 const profileByKey = new Map();
 let lastProfile = "";
+let speechRun = 0; // bumped to stop a running sentence-by-sentence sequence
+let voicesWaited = false; // wait for the voice list only once
 window.speechSynthesis?.getVoices(); // phones load the list lazily; start loading early
-export function speak(text, rate = 1, key = "", onError = () => {}) {
+
+// Reading speed, 0.8–2.0, remembered on this device.
+export const RATE_MIN = 0.8, RATE_MAX = 2;
+export function getRate() {
+  let r = 1;
+  try { r = Number(localStorage.getItem("nr-rate")) || 1; } catch {}
+  return Math.min(RATE_MAX, Math.max(RATE_MIN, r));
+}
+export function setRate(r) {
+  try { localStorage.setItem("nr-rate", String(r)); } catch {}
+}
+
+export function speak(text, key = "", onError = () => {}) {
+  speechRun++;
+  say(text, key, onError);
+}
+// events: { onstart, onend } for this utterance.
+function say(text, key, onError, events = {}) {
   const synth = window.speechSynthesis;
   if (!synth) return onError("此瀏覽器不支援朗讀。");
   synth.cancel();
   const voices = synth.getVoices();
-  if (!voices.length) {
+  if (!voices.length && !voicesWaited) {
     // The list is not ready yet: speak once it arrives (or after 1 s with the default voice).
     let done = false;
-    const retry = () => { if (!done) { done = true; speakWith(synth, synth.getVoices(), text, rate, key, onError); } };
+    const retry = () => { if (!done) { done = true; voicesWaited = true; sayWith(synth, synth.getVoices(), text, key, onError, events); } };
     synth.addEventListener("voiceschanged", retry, { once: true });
     setTimeout(retry, 1000);
     return;
   }
-  speakWith(synth, voices, text, rate, key, onError);
+  sayWith(synth, voices, text, key, onError, events);
 }
-function speakWith(synth, voices, text, rate, key, onError) {
+function sayWith(synth, voices, text, key, onError, events) {
   const profiles = availableProfiles(voices);
   let profile = profiles.find((p) => p.id === profileByKey.get(key));
   if (!profile) {
@@ -101,12 +120,42 @@ function speakWith(synth, voices, text, rate, key, onError) {
   }
   lastProfile = profile.id;
   const u = new SpeechSynthesisUtterance(text);
-  u.rate = rate;
+  u.rate = getRate();
   u.lang = profile.lang;
   if (profile.voice) u.voice = profile.voice;
+  u.onstart = () => events.onstart?.();
+  u.onend = () => events.onend?.();
   u.onerror = (e) => { if (!["interrupted", "canceled"].includes(e.error)) onError("播放失敗，請再試一次。"); };
   synth.speak(u);
 }
+
+// 逐句跟述: reads one sentence, then stays silent as long as that sentence took, so the learner
+// can repeat it; then the next sentence, until the last. Calls onStep(index, total, "speak" | "repeat")
+// and onDone() at the end. Any other speech, stopAudio() or a new call stops it.
+export function shadow(text, key, { onStep = () => {}, onDone = () => {}, onError = () => {} } = {}) {
+  const run = ++speechRun;
+  const sentences = splitSentences(text);
+  let i = 0;
+  const next = () => {
+    if (run !== speechRun) return;
+    if (i >= sentences.length) return onDone();
+    const index = i;
+    let startedAt = performance.now();
+    onStep(index, sentences.length, "speak");
+    say(sentences[index], key, onError, {
+      onstart: () => { startedAt = performance.now(); },
+      onend: () => {
+        if (run !== speechRun) return;
+        const pause = Math.max(800, performance.now() - startedAt);
+        onStep(index, sentences.length, "repeat");
+        i++;
+        setTimeout(next, pause);
+      },
+    });
+  };
+  next();
+}
+export const stopShadow = () => { speechRun++; };
 
 // ---------- speech input ----------
 const recognitionClass = () => window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -161,6 +210,7 @@ export function stopListening() {
 }
 export function stopAudio() {
   stopListening();
+  speechRun++;
   window.speechSynthesis?.cancel();
 }
 

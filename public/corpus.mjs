@@ -226,7 +226,7 @@ $("r-intention").onchange = () => {
   if (adding) $("r-new-intention").focus();
 };
 $("r-delete").onclick = remove;
-$("r-play").onclick = () => { const text = $("r-reply").value.trim(); if (text) speak(text, 1, list[index]?.id || "new", status); };
+$("r-play").onclick = () => { const text = $("r-reply").value.trim(); if (text) speak(text, list[index]?.id || "new", status); };
 document.addEventListener("keydown", (e) => {
   if ($("corpus").hidden || $("c-record").hidden || creating || e.ctrlKey || e.altKey || e.metaKey || e.target.closest?.("input,textarea,select")) return;
   if (e.key === "ArrowLeft") showRecord(index - 1);

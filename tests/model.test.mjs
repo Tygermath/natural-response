@@ -75,3 +75,11 @@ test("earlier label spellings become bilingual labels", () => {
   assert.equal(db.records[0].intention, "說明做法 Explain the plan");
   assert.equal(db.records[0].channel, "口頭對話 Spoken");
 });
+
+test("splitSentences keeps abbreviations and closing quotes together", async () => {
+  const { splitSentences } = await import("../public/model.mjs");
+  assert.deepEqual(splitSentences("I'm going to pick a name stick out of the cup. Please be ready."), ["I'm going to pick a name stick out of the cup.", "Please be ready."]);
+  assert.deepEqual(splitSentences("Great pick! Mr. Woo explains things clearly, e.g. limits. Why him?"), ["Great pick!", "Mr. Woo explains things clearly, e.g. limits.", "Why him?"]);
+  assert.deepEqual(splitSentences('She said "Well done." Then we left'), ['She said "Well done."', "Then we left"]);
+  assert.deepEqual(splitSentences("One sentence only"), ["One sentence only"]);
+});
