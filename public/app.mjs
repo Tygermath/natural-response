@@ -109,23 +109,45 @@ function speakWith(synth, voices, text, rate, key, onError) {
 }
 
 // ---------- speech input ----------
-const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-export const canListen = !!Recognition;
+const recognitionClass = () => window.SpeechRecognition || window.webkitSpeechRecognition;
+export const canListen = () => !!recognitionClass();
 let listener = null;
 // One recognition at a time; a new one can only start after the browser ended the previous one.
-export function listen({ onText, onState, onError }) {
+// onEnd(heard) tells whether any speech was recognised, so a silent stop can be explained.
+export function listen({ onText, onState, onError, onEnd = () => {} }) {
+  const Recognition = recognitionClass();
   if (!Recognition || listener) return false;
+  // Cancelling speech output switches the phone's audio session; doing that right before the
+  // microphone opens makes some phones end recognition at once (two beeps). Only cancel when needed.
+  const synth = window.speechSynthesis;
+  if (synth && (synth.speaking || synth.pending)) synth.cancel();
   const rec = new Recognition();
-  listener = { rec, onState, stopping: false };
+  const current = { rec, onState, stopping: false, heard: false, failed: false };
+  listener = current;
   rec.lang = "en-US";
   rec.interimResults = true;
   rec.continuous = false;
-  rec.onresult = (e) => onText([...e.results].map((r) => r[0].transcript).join(" "));
-  rec.onerror = (e) => { if (!listener?.stopping) onError(e.error); };
-  rec.onend = () => { listener = null; onState("idle"); };
+  rec.maxAlternatives = 1;
+  rec.onresult = (e) => {
+    const text = [...e.results].map((r) => r[0].transcript).join(" ").trim();
+    if (text) current.heard = true;
+    onText(text);
+  };
+  rec.onerror = (e) => { current.failed = true; if (!current.stopping) onError(e.error); };
+  rec.onend = () => {
+    if (listener === current) listener = null;
+    onState("idle");
+    if (!current.stopping && !current.failed) onEnd(current.heard);
+  };
   try { rec.start(); } catch { listener = null; return false; }
   onState("listening");
   return true;
+}
+export const isListening = () => !!listener && !listener.stopping;
+// Ends listening but keeps what was said (used when the user taps the button again).
+export function finishListening() {
+  if (!listener || listener.stopping) return;
+  try { listener.rec.stop(); } catch { stopListening(); }
 }
 export function stopListening() {
   if (!listener || listener.stopping) return;

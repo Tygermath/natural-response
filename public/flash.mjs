@@ -1,4 +1,4 @@
-import { $, state, saveDb, situationOf, fillSelect, valueLabel, filterOptions, situationOptions, views, showView, speak, stopAudio, listen, stopListening, canListen, tone, pendingCount } from "./app.mjs";
+import { $, state, saveDb, situationOf, fillSelect, valueLabel, filterOptions, situationOptions, views, showView, speak, stopAudio, listen, stopListening, isListening, finishListening, canListen, tone, pendingCount } from "./app.mjs";
 import { filterRecords, compare, chunkRanges } from "./model.mjs";
 
 let deck = [], index = 0, flipped = false;
@@ -104,25 +104,40 @@ function check() {
   tone(result.exact);
 }
 
+const DICTATION_HINT = "也可以點文字框，用鍵盤上的麥克風（聽寫）輸入。Or tap the text box and use the keyboard's dictation.";
+const MIC_ERRORS = {
+  "not-allowed": "麥克風未獲允許：請在瀏覽器設定中允許此網站使用麥克風。",
+  "service-not-allowed": "這個瀏覽器不允許語音辨識（例如 iPhone 需開啟「設定 → 一般 → 鍵盤 → 聽寫」）。",
+  "no-speech": "沒有聽到聲音，請在提示音後再說話。",
+  "audio-capture": "找不到可用的麥克風，或麥克風正被其他 app 使用。",
+  network: "語音辨識需要網路連線。",
+};
+let micStartedAt = 0;
+// Tap once to start, tap again to finish early. Repeated taps right after starting are ignored,
+// so one touch can never start and immediately stop listening.
 function mic() {
   if (flipped || !card()) return;
-  if (!canListen) return status("此瀏覽器不支援語音辨識，可直接打字。");
-  window.speechSynthesis?.cancel();
+  if (!canListen()) return status("此瀏覽器不支援語音辨識。" + DICTATION_HINT);
+  if (Date.now() - micStartedAt < 800) return;
+  if (isListening()) return finishListening();
+  micStartedAt = Date.now();
   $("flash-answer").value = "";
   $("flash-result").replaceChildren();
+  status("");
   const button = $("flash-mic");
   const started = listen({
     onText: (text) => { $("flash-answer").value = text; },
     onState: (s) => {
-      button.disabled = s !== "idle";
+      button.disabled = s === "stopping";
       button.classList.toggle("listening", s === "listening");
-      button.setAttribute("aria-pressed", String(s !== "idle"));
-      const [zh, en] = s === "listening" ? ["聆聽中…", "Listening"] : ["語音輸入", "Speak"];
+      button.setAttribute("aria-pressed", String(s === "listening"));
+      const [zh, en] = s === "listening" ? ["聆聽中，點此結束", "Tap to stop"] : ["語音輸入", "Speak"];
       button.replaceChildren(zh, Object.assign(document.createElement("span"), { className: "en", textContent: en }));
     },
-    onError: (code) => status(code === "not-allowed" ? "麥克風未獲允許。" : code === "no-speech" ? "沒有聽到聲音。" : "語音輸入失敗。"),
+    onError: (code) => status((MIC_ERRORS[code] || "語音輸入中斷（" + code + "）。") + " " + DICTATION_HINT),
+    onEnd: (heard) => { if (!heard) status("沒有辨識到內容，請在提示音後再說一次。" + DICTATION_HINT); },
   });
-  if (!started) status("無法啟動麥克風。");
+  if (!started) status("無法啟動麥克風。" + DICTATION_HINT);
 }
 
 async function setMastered() {
