@@ -1,6 +1,7 @@
 // Shared client state and helpers. Views import this; main.mjs wires them together.
 import { valuesOf, UNSET } from "./model.mjs";
 import { createStorage } from "./storage.mjs";
+import { availableProfiles } from "./voices.mjs";
 
 export const $ = (id) => document.getElementById(id);
 export const state = { db: null };
@@ -71,29 +72,40 @@ export function showView(name) {
 export const hasUnsavedEdits = () => Object.values(views).some((v) => v.dirty?.());
 
 // ---------- speech output ----------
-const voiceByKey = new Map();
-let lastVoice = null;
-function englishVoices() {
-  return window.speechSynthesis.getVoices().filter((v) => /^en[-_](US|GB)/i.test(v.lang));
-}
-// The same key (card) keeps its voice; a new key gets a different voice than the previous one.
+// Four voices (US/UK × female/male, see voices.mjs) rotate between cards; a card keeps its voice.
+const profileByKey = new Map();
+let lastProfile = "";
+window.speechSynthesis?.getVoices(); // phones load the list lazily; start loading early
 export function speak(text, rate = 1, key = "", onError = () => {}) {
-  if (!window.speechSynthesis) return onError("此瀏覽器不支援朗讀。");
-  window.speechSynthesis.cancel();
-  const voices = englishVoices();
-  let voice = voices.find((v) => v.voiceURI === voiceByKey.get(key));
-  if (!voice && voices.length) {
-    const pool = voices.length > 1 ? voices.filter((v) => v !== lastVoice) : voices;
-    voice = pool[Math.floor(Math.random() * pool.length)];
-    if (key) voiceByKey.set(key, voice.voiceURI);
+  const synth = window.speechSynthesis;
+  if (!synth) return onError("此瀏覽器不支援朗讀。");
+  synth.cancel();
+  const voices = synth.getVoices();
+  if (!voices.length) {
+    // The list is not ready yet: speak once it arrives (or after 1 s with the default voice).
+    let done = false;
+    const retry = () => { if (!done) { done = true; speakWith(synth, synth.getVoices(), text, rate, key, onError); } };
+    synth.addEventListener("voiceschanged", retry, { once: true });
+    setTimeout(retry, 1000);
+    return;
   }
-  lastVoice = voice || null;
+  speakWith(synth, voices, text, rate, key, onError);
+}
+function speakWith(synth, voices, text, rate, key, onError) {
+  const profiles = availableProfiles(voices);
+  let profile = profiles.find((p) => p.id === profileByKey.get(key));
+  if (!profile) {
+    const pool = profiles.length > 1 ? profiles.filter((p) => p.id !== lastProfile) : profiles;
+    profile = pool[Math.floor(Math.random() * pool.length)];
+    if (key) profileByKey.set(key, profile.id);
+  }
+  lastProfile = profile.id;
   const u = new SpeechSynthesisUtterance(text);
   u.rate = rate;
-  u.lang = voice?.lang || "en-US";
-  if (voice) u.voice = voice;
+  u.lang = profile.lang;
+  if (profile.voice) u.voice = profile.voice;
   u.onerror = (e) => { if (!["interrupted", "canceled"].includes(e.error)) onError("播放失敗，請再試一次。"); };
-  window.speechSynthesis.speak(u);
+  synth.speak(u);
 }
 
 // ---------- speech input ----------
