@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#ffffff"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Natural Response"><title>Natural Response</title><link rel="icon" href="favicon.svg"><link rel="apple-touch-icon" href="icon-192.png"><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="style.css"><script type="module" src="main.mjs"></script></head><body>
+<nav>
+  <button class="tab" data-view="flash">練習<span class="en">Practice</span></button>
+  <button class="tab" data-view="corpus">語料庫<span class="en">Corpus</span><span id="pending-badge" class="badge" hidden></span></button>
+  <button class="tab" data-view="create">新增情境<span class="en">New situation</span></button>
+  <button class="tab" data-view="settings">設定<span class="en">Settings</span></button>
+</nav>
+<main>
+<p id="load-status" class="status"></p>
+
+<section id="flash" hidden>
+  <div class="filters">
+    <select id="f-situation" aria-label="情境 Situation"></select>
+    <select id="f-intention" aria-label="回應目的 Intention"></select>
+    <select id="f-channel" aria-label="溝通形式 Channel"></select>
+    <select id="f-order" aria-label="出卡順序 Order"><option value="random">隨機 Random</option><option value="newest">由新到舊 Newest first</option><option value="list">建立順序 As created</option></select>
+    <label class="check"><input type="checkbox" id="f-unmastered">只練未熟練 Not mastered only</label>
+  </div>
+  <div id="flash-empty" hidden><p id="flash-empty-message"></p><button id="flash-empty-action" class="secondary"></button></div>
+  <div id="flash-content" hidden>
+    <div class="perspective"><div id="flash-card" class="card">
+      <div id="flash-front" class="face">
+        <div class="card-meta"><span id="flash-position"></span><span class="tags"><span id="flash-intention" title="回應目的 Intention"></span><span id="flash-channel" title="溝通形式 Channel"></span></span></div>
+        <h3 id="flash-title"></h3>
+        <p id="flash-description" class="description"></p>
+        <div class="cue">提示語塊 Chunks</div>
+        <div id="flash-chunks" class="chunks"></div>
+        <div class="answer">
+          <textarea id="flash-answer" rows="2" placeholder="用英文說出或打出你的回應 Say or type your reply" aria-label="你的回應 Your reply"></textarea>
+          <div class="row"><button id="flash-mic" class="primary" aria-pressed="false">語音輸入<span class="en">Speak</span></button><button id="flash-check" class="secondary">核對<span class="en">Check</span></button></div>
+          <div id="flash-result" aria-live="polite"></div>
+        </div>
+        <div class="speech"><button class="secondary" data-rate=".75">慢速<span class="en">Slow</span></button><button class="secondary" data-rate="1">▷ 聽示範<span class="en">Listen</span></button><button class="secondary" data-rate="1.25">快速<span class="en">Fast</span></button></div>
+      </div>
+      <div id="flash-back" class="face back" aria-hidden="true" inert>
+        <p id="flash-reply" class="reply"></p>
+        <div class="speech"><button class="secondary" data-rate=".75">慢速<span class="en">Slow</span></button><button class="secondary" data-rate="1">▷ 聽示範<span class="en">Listen</span></button><button class="secondary" data-rate="1.25">快速<span class="en">Fast</span></button></div>
+        <div class="row end"><button id="flash-edit" class="quiet">編輯 Edit</button></div>
+      </div>
+    </div></div>
+    <div class="flash-tools"><label class="check"><input type="checkbox" id="flash-mastered">熟練 Mastered</label><span class="hint">空白鍵／點卡片翻面 · 左右滑動或方向鍵換卡　Space / tap to flip · swipe or arrow keys to move</span></div>
+    <div class="flash-nav"><button id="flash-prev" class="secondary">← 上一張</button><button id="flash-reorder" class="quiet">重新洗牌<span class="en">Shuffle</span></button><button id="flash-next" class="primary">下一張 →</button></div>
+  </div>
+  <p id="flash-status" class="status" role="status"></p>
+</section>
+
+<section id="corpus" hidden>
+  <div class="split">
+  <div id="c-list-view">
+    <div class="filters four">
+      <select id="c-situation" aria-label="情境 Situation"></select>
+      <select id="c-intention" aria-label="回應目的 Intention"></select>
+      <select id="c-channel" aria-label="溝通形式 Channel"></select>
+      <select id="c-review" aria-label="審核狀態 Review status"><option value="">全部狀態 All</option><option value="pending">待審核 To review</option><option value="approved">已審核 Approved</option></select>
+    </div>
+    <input id="c-search" type="search" placeholder="搜尋情境、回應或語塊 Search" aria-label="搜尋 Search">
+    <div class="row between list-head"><span id="c-count" class="muted"></span><button type="button" id="c-add" class="secondary">＋ 新增一筆 Add</button></div>
+    <div id="c-list" class="record-list"></div>
+  </div>
+  <form id="c-record" hidden>
+    <div class="row between record-nav"><button type="button" id="c-back" class="quiet">← 列表 List</button><span><span id="c-pos" class="muted"></span> <span id="r-pending" class="badge" hidden>待審核 To review</span></span><span class="row"><button type="button" id="c-prev" class="secondary" aria-label="上一筆 Previous">←</button><button type="button" id="c-next" class="secondary" aria-label="下一筆 Next">→</button></span></div>
+    <label for="r-situation-pick" id="r-situation-pick-label" hidden>情境 Situation</label><select id="r-situation-pick" hidden></select>
+    <label for="r-title">情境名稱 <span class="en">Situation title</span> <small id="r-shared"></small></label><input id="r-title" maxlength="80">
+    <label for="r-description">情境說明 <span class="en">Situation details</span></label><textarea id="r-description" rows="3" maxlength="2000"></textarea>
+    <div class="two">
+      <div><label for="r-intention">回應目的 <span class="en">Intention</span></label><select id="r-intention"></select><input id="r-new-intention" maxlength="40" placeholder="例如：安撫 Reassure" aria-label="新的回應目的 New intention" hidden></div>
+      <div><label for="r-channel">溝通形式 <span class="en">Channel</span></label><select id="r-channel"></select></div>
+    </div>
+    <label for="r-reply">回應 <span class="en">Reply (English)</span></label><textarea id="r-reply" rows="3" maxlength="3000"></textarea>
+    <label for="r-chunks">語塊 <span class="en">Chunks</span> <small>以 ; 分隔，… 表示可替換的部分　separate with ; · … marks a replaceable part</small></label><input id="r-chunks" maxlength="300">
+    <label class="check spaced"><input type="checkbox" id="r-mastered">熟練 Mastered</label>
+    <div class="row between actions"><button type="button" id="r-delete" class="quiet danger">刪除 Delete</button><span class="row"><button type="button" id="r-play" class="secondary">▷ 聽 Listen</button><button type="submit" id="r-save" class="secondary">儲存 Save</button><button type="button" id="r-approve" class="primary">核准，下一筆<span class="en">Approve, next</span></button></span></div>
+  </form>
+  </div>
+  <p id="c-status" class="status" role="status"></p>
+</section>
+
+<section id="create" hidden>
+  <label for="g-target">情境 <span class="en">Situation</span></label><select id="g-target"></select>
+  <div id="g-new-fields">
+    <label for="g-title">情境名稱 <span class="en">Situation title</span></label><input id="g-title" maxlength="80" placeholder="例如：學生選 Eddie Woo 當模仿對象">
+    <label for="g-description">情境說明 <span class="en">Situation details</span></label><textarea id="g-description" rows="3" maxlength="2000" placeholder="例如：我請學生選一個影片，模仿他的教學。有個學生選了 Eddie Woo。"></textarea>
+  </div>
+  <p id="g-existing" class="muted boxed" hidden></p>
+  <h3>回應目的 <span class="en">Intentions</span></h3><div id="g-intentions" class="chips"></div>
+  <div class="row add-label"><input id="g-new-intention" maxlength="40" placeholder="其他目的，例如：安撫 Reassure" aria-label="新增回應目的 New intention"><button type="button" id="g-add-intention" class="secondary">加入 Add</button></div>
+  <div class="row gen-row"><label class="inline" for="g-per">每種組合產生 <span class="en">Replies per combination</span></label><select id="g-per" class="narrow"><option>1</option><option>2</option><option>3</option></select></div>
+  <p id="g-plan" class="muted"></p>
+  <div class="row"><button type="button" id="g-generate" class="primary">產生回應<span class="en">Generate</span></button></div>
+  <p id="g-status" class="status" role="status"></p>
+  <div class="row" id="g-review-row" hidden><button type="button" id="g-review" class="secondary">開始審核 Review →</button></div>
+</section>
+
+<section id="settings" hidden>
+  <h3>回應目的 <span class="en">Intentions</span></h3><p class="muted">回應的用意，每行一個。One per line: the purpose of a reply.</p><textarea id="s-intentions" rows="7" aria-label="回應目的清單 Intentions"></textarea>
+  <h3>溝通形式 <span class="en">Channels</span></h3><p class="muted">說話或書寫的場合，每行一個。產生回應時每種形式各寫一句。One per line; each generated set covers every channel.</p><textarea id="s-channels" rows="4" aria-label="溝通形式清單 Channels"></textarea>
+  <div class="row"><button id="s-save-lists" class="secondary">儲存清單 Save lists</button></div>
+  <p id="s-lists-status" class="status" role="status"></p>
+
+  <h3>Claude API key</h3>
+  <p class="muted">產生回應時使用，只存在這台裝置的瀏覽器。Used for generating replies; stored only in this browser.</p>
+  <div class="row"><input id="s-anthropic-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…" aria-label="Claude API key"><button id="s-save-key" class="secondary">儲存 Save</button></div>
+  <p id="s-key-status" class="status" role="status"></p>
+
+  <h3>跨裝置同步 <span class="en">Sync between devices</span></h3>
+  <p class="muted">在每台裝置填入同一個 GitHub token（只需 Gist 權限），語料庫會存在你 GitHub 帳號的私密 Gist，並保留每次修改的版本。Enter the same GitHub token (Gist permission only) on each device; the corpus is kept in a secret Gist with its full revision history.</p>
+  <div class="row"><input id="s-github-token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_… / ghp_…" aria-label="GitHub token"><button id="s-connect" class="primary">連接 Connect</button></div>
+  <div class="row"><button id="s-disconnect" class="quiet" hidden>停止同步 Stop syncing</button><a id="s-gist-link" class="quiet-link" target="_blank" rel="noopener" hidden>在 GitHub 查看 View on GitHub</a></div>
+  <p id="s-sync-status" class="status" role="status"></p>
+
+  <h3>備份 <span class="en">Backup</span></h3>
+  <div class="row"><button id="s-export" class="secondary">匯出 JSON Export</button><button id="s-import" class="secondary">匯入 JSON Import</button><input id="s-import-file" type="file" accept=".json,application/json" hidden></div>
+  <p id="s-backup-status" class="status" role="status"></p>
+</section>
+</main>
+</body></html>
