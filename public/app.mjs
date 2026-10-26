@@ -1,5 +1,5 @@
 // Shared client state and helpers. Views import this; main.mjs wires them together.
-import { valuesOf, UNSET, splitSentences } from "./model.mjs";
+import { valuesOf, UNSET, splitPhrases } from "./model.mjs";
 import { createStorage } from "./storage.mjs";
 import { availableProfiles } from "./voices.mjs";
 
@@ -90,11 +90,12 @@ export function setRate(r) {
   try { localStorage.setItem("nr-rate", String(r)); } catch {}
 }
 
-export function speak(text, key = "", onError = () => {}) {
+// events: { onend } is called when this reading finishes, fails or is interrupted.
+export function speak(text, key = "", onError = () => {}, events = {}) {
   speechRun++;
-  say(text, key, onError);
+  say(text, key, onError, { onend: events.onend, onstop: events.onend });
 }
-// events: { onstart, onend } for this utterance.
+// events for this utterance: onstart, onend (finished), onstop (failed or interrupted).
 function say(text, key, onError, events = {}) {
   const synth = window.speechSynthesis;
   if (!synth) return onError("此瀏覽器不支援朗讀。");
@@ -125,7 +126,10 @@ function sayWith(synth, voices, text, key, onError, events) {
   if (profile.voice) u.voice = profile.voice;
   u.onstart = () => events.onstart?.();
   u.onend = () => events.onend?.();
-  u.onerror = (e) => { if (!["interrupted", "canceled"].includes(e.error)) onError("播放失敗，請再試一次。"); };
+  u.onerror = (e) => {
+    events.onstop?.();
+    if (!["interrupted", "canceled"].includes(e.error)) onError("播放失敗，請再試一次。");
+  };
   synth.speak(u);
 }
 
@@ -134,7 +138,7 @@ function sayWith(synth, voices, text, key, onError, events) {
 // and onDone() at the end. Any other speech, stopAudio() or a new call stops it.
 export function shadow(text, key, { onStep = () => {}, onDone = () => {}, onError = () => {} } = {}) {
   const run = ++speechRun;
-  const sentences = splitSentences(text);
+  const sentences = splitPhrases(text);
   const later = (fn, ms) => setTimeout(() => { if (run === speechRun) fn(); }, ms);
   let i = 0;
   // Per sentence: read it → silence 0.8 × its length to recall it → beep → silence as long as

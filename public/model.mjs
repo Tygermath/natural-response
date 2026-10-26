@@ -159,10 +159,17 @@ export function chunkRanges(text, chunks) {
   return merged;
 }
 
-// Splits a reply into sentences for 逐句跟述. Abbreviations such as "Mr." or "e.g." do not end a sentence.
+// Splits a reply into the phrases read one at a time by 逐句跟述: a phrase ends at a sentence end
+// (. ! ?) or a clause end (, ;). Abbreviations such as "Mr." or "e.g." and commas inside numbers
+// such as "1,000" do not end a phrase.
 const ABBREVIATIONS = /\b(Mr|Mrs|Ms|Dr|Prof|St|vs|etc|e\.g|i\.e|a\.m|p\.m)\./gi;
-export function splitSentences(text) {
-  const guarded = String(text ?? "").replace(ABBREVIATIONS, (m) => m.replace(/\./g, "\u0000"));
-  const parts = guarded.match(/[^.!?…]+(?:[.!?…]+["'”’)\]]*|$)/g) || [];
-  return parts.map((p) => p.replace(/\u0000/g, ".").trim()).filter((p) => /[a-z0-9]/i.test(p));
+const KEEP_DOT = "\u0000", KEEP_COMMA = "\u0001";
+export function splitPhrases(text) {
+  const guarded = String(text ?? "")
+    .replace(ABBREVIATIONS, (m) => m.replaceAll(".", KEEP_DOT))
+    .replace(/(\d),(\d)/g, "$1" + KEEP_COMMA + "$2");
+  const parts = guarded.match(/[^.!?…,;]+(?:[.!?…]+["'”’)\]]*|[,;]["'”’)\]]*|$)/g) || [];
+  return parts
+    .map((p) => p.replaceAll(KEEP_DOT, ".").replaceAll(KEEP_COMMA, ",").trim())
+    .filter((p) => /[a-z0-9]/i.test(p));
 }

@@ -30,6 +30,7 @@ function showRate() { $("flash-rate-value").textContent = getRate().toFixed(1) +
 function setShadowing(on) {
   const b = $("flash-shadow");
   b.setAttribute("aria-pressed", String(on));
+  b.classList.toggle("running", on);
   b.replaceChildren(on ? "停止跟述" : "逐句跟述", Object.assign(document.createElement("span"), { className: "en", textContent: on ? "Stop" : "Shadow" }));
 }
 function toggleShadow() {
@@ -38,6 +39,7 @@ function toggleShadow() {
   if ($("flash-shadow").getAttribute("aria-pressed") === "true") { stopShadow(); window.speechSynthesis?.cancel(); setShadowing(false); status(""); return; }
   stopListening();
   unlockAudio(); // the beep plays later, outside this tap
+  $("flash-listen").classList.remove("running");
   setShadowing(true);
   const PHASES = { speak: "聽 Listen", recall: "回想 Recall", repeat: "嗶聲後跟述 Your turn" };
   shadow(r.reply, r.id, {
@@ -49,6 +51,7 @@ function toggleShadow() {
 function setFlipped(value) {
   flipped = value;
   setShadowing(false);
+  $("flash-listen").classList.remove("running");
   $("flash-card").classList.toggle("flipped", value);
   $("flash-front").setAttribute("aria-hidden", String(value));
   $("flash-back").setAttribute("aria-hidden", String(!value));
@@ -144,8 +147,13 @@ function mic() {
   if (Date.now() - micStartedAt < 800) return;
   if (isListening()) return finishListening();
   micStartedAt = Date.now();
-  // The microphone would pick up the app's own voice; stop shadowing first.
-  if ($("flash-shadow").getAttribute("aria-pressed") === "true") { stopShadow(); window.speechSynthesis?.cancel(); setShadowing(false); }
+  // The microphone would pick up the app's own voice; stop any reading first.
+  if ($("flash-shadow").getAttribute("aria-pressed") === "true" || $("flash-listen").classList.contains("running")) {
+    stopShadow();
+    window.speechSynthesis?.cancel();
+    setShadowing(false);
+    $("flash-listen").classList.remove("running");
+  }
   $("flash-answer").value = "";
   $("flash-result").replaceChildren();
   status("");
@@ -154,7 +162,7 @@ function mic() {
     onText: (text) => { $("flash-answer").value = text; },
     onState: (s) => {
       button.disabled = s === "stopping";
-      button.classList.toggle("listening", s === "listening");
+      button.classList.toggle("running", s === "listening");
       button.setAttribute("aria-pressed", String(s === "listening"));
       const [zh, en] = s === "listening" ? ["聆聽中，點此結束", "Tap to stop"] : ["語音輸入", "Speak"];
       button.replaceChildren(zh, Object.assign(document.createElement("span"), { className: "en", textContent: en }));
@@ -211,7 +219,16 @@ $("flash-next").onclick = () => go(1);
 $("flash-mic").onclick = mic;
 $("flash-check").onclick = check;
 $("flash-mastered").onchange = setMastered;
-$("flash-listen").onclick = () => { const r = card(); if (r) { stopListening(); setShadowing(false); speak(r.reply, r.id, status); } };
+// 聽示範 stays lit while the reply is being read.
+const setListenLit = (on) => $("flash-listen").classList.toggle("running", on);
+$("flash-listen").onclick = () => {
+  const r = card();
+  if (!r) return;
+  stopListening();
+  setShadowing(false);
+  setListenLit(true);
+  speak(r.reply, r.id, (msg) => { setListenLit(false); status(msg); }, { onend: () => setListenLit(false) });
+};
 $("flash-shadow").onclick = toggleShadow;
 $("flash-rate").value = getRate();
 showRate();

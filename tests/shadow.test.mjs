@@ -30,7 +30,7 @@ const { shadow, getRate, setRate } = await import("../public/app.mjs");
 
 test("each sentence: read, recall pause 0.8x, beep, repeat pause 1x (min 0.8 s), next", async () => {
   const steps = [];
-  const long = "This sentence is long enough to take well over one second to read aloud, so the minimum does not apply here at all."; // ~1.2 s
+  const long = "This sentence is long enough to take well over one second to read aloud so the minimum does not apply here at all."; // ~1.2 s
   const short = "Hi.";                                                          // 30 ms
   await new Promise((done) => shadow(`${long} ${short}`, "card", { onStep: (i, n, phase) => steps.push([i, phase, at()]), onDone: done }));
 

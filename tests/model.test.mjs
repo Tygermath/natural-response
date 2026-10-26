@@ -76,10 +76,12 @@ test("earlier label spellings become bilingual labels", () => {
   assert.equal(db.records[0].channel, "口頭對話 Spoken");
 });
 
-test("splitSentences keeps abbreviations and closing quotes together", async () => {
-  const { splitSentences } = await import("../public/model.mjs");
-  assert.deepEqual(splitSentences("I'm going to pick a name stick out of the cup. Please be ready."), ["I'm going to pick a name stick out of the cup.", "Please be ready."]);
-  assert.deepEqual(splitSentences("Great pick! Mr. Woo explains things clearly, e.g. limits. Why him?"), ["Great pick!", "Mr. Woo explains things clearly, e.g. limits.", "Why him?"]);
-  assert.deepEqual(splitSentences('She said "Well done." Then we left'), ['She said "Well done."', "Then we left"]);
-  assert.deepEqual(splitSentences("One sentence only"), ["One sentence only"]);
+test("splitPhrases splits at sentence and clause ends only", async () => {
+  const { splitPhrases } = await import("../public/model.mjs");
+  assert.deepEqual(splitPhrases("This time, I'll pick someone at random instead of asking for volunteers."), ["This time,", "I'll pick someone at random instead of asking for volunteers."]);
+  assert.deepEqual(splitPhrases("I'll choose one student at random. Everyone, think about your answer."), ["I'll choose one student at random.", "Everyone,", "think about your answer."]);
+  assert.deepEqual(splitPhrases("Great pick! Mr. Woo explains it well; e.g. limits. Why him?"), ["Great pick!", "Mr. Woo explains it well;", "e.g. limits.", "Why him?"]);
+  assert.deepEqual(splitPhrases("We raised 1,000 dollars, right?"), ["We raised 1,000 dollars,", "right?"]);
+  assert.deepEqual(splitPhrases('She said "Well done," then left'), ['She said "Well done,"', "then left"]);
+  assert.deepEqual(splitPhrases("One phrase only"), ["One phrase only"]);
 });

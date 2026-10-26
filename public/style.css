@@ -66,14 +66,16 @@ nav{display:flex;justify-content:center;gap:4px;border-bottom:1px solid var(--li
 .answer{margin-top:12px}
 .answer .row{margin-top:8px}
 .answer .row button{flex:1}
-#flash-mic.listening{box-shadow:0 0 0 3px #b9d89d}
+/* A button whose action is still running (listening, reading, shadowing) stays lit. */
+button.running{background:var(--mark);border-color:var(--green);color:var(--green);font-weight:600;box-shadow:0 0 0 3px #b9d89d;animation:running 1.4s ease-in-out infinite}
+@keyframes running{50%{box-shadow:0 0 0 6px #b9d89d66}}
+@media(prefers-reduced-motion:reduce){button.running{animation:none}}
 #flash-result{margin-top:8px;font-size:13px;display:flex;flex-wrap:wrap;gap:4px 12px}
 #flash-result strong{width:100%}
 #flash-result.exact,#flash-result .hit{color:var(--ok)}
 #flash-result.partial{color:var(--green)}
 #flash-result.miss strong,#flash-result .lost{color:var(--warn)}
 .speech{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
-#flash-shadow[aria-pressed="true"]{background:var(--mark);border-color:var(--green)}
 .rate{display:flex;align-items:center;gap:10px;margin-top:8px}
 .rate label{margin:0;white-space:nowrap}
 .rate input{flex:1;padding:0;border:0;accent-color:var(--green);min-height:32px}
