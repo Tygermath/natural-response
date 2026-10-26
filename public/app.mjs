@@ -79,8 +79,8 @@ let speechRun = 0; // bumped to stop a running sentence-by-sentence sequence
 let voicesWaited = false; // wait for the voice list only once
 window.speechSynthesis?.getVoices(); // phones load the list lazily; start loading early
 
-// Reading speed, 0.8–2.0, remembered on this device.
-export const RATE_MIN = 0.8, RATE_MAX = 2;
+// Reading speed, 0.8–1.5, remembered on this device.
+export const RATE_MIN = 0.8, RATE_MAX = 1.5;
 export function getRate() {
   let r = 1;
   try { r = Number(localStorage.getItem("nr-rate")) || 1; } catch {}
@@ -135,21 +135,28 @@ function sayWith(synth, voices, text, key, onError, events) {
 export function shadow(text, key, { onStep = () => {}, onDone = () => {}, onError = () => {} } = {}) {
   const run = ++speechRun;
   const sentences = splitSentences(text);
+  const later = (fn, ms) => setTimeout(() => { if (run === speechRun) fn(); }, ms);
   let i = 0;
+  // Per sentence: read it → silence 0.8 × its length to recall it → beep → silence as long as
+  // the sentence (at least 0.8 s) to repeat it → next sentence.
   const next = () => {
     if (run !== speechRun) return;
     if (i >= sentences.length) return onDone();
-    const index = i;
+    const index = i, total = sentences.length;
     let startedAt = performance.now();
-    onStep(index, sentences.length, "speak");
+    onStep(index, total, "speak");
     say(sentences[index], key, onError, {
       onstart: () => { startedAt = performance.now(); },
       onend: () => {
         if (run !== speechRun) return;
-        const pause = Math.max(800, performance.now() - startedAt);
-        onStep(index, sentences.length, "repeat");
-        i++;
-        setTimeout(next, pause);
+        const duration = performance.now() - startedAt;
+        onStep(index, total, "recall");
+        later(() => {
+          beep();
+          onStep(index, total, "repeat");
+          i++;
+          later(next, Math.max(800, duration));
+        }, 0.8 * duration);
       },
     });
   };
@@ -214,22 +221,37 @@ export function stopAudio() {
   window.speechSynthesis?.cancel();
 }
 
-export function tone(success) {
+// One shared AudioContext. Phones only let it make sound if it was created or resumed during a
+// tap, so tap handlers call unlockAudio() before sounds that play later (the shadowing beep).
+let audioCtx = null;
+export function unlockAudio() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
-  if (!Ctx) return;
+  if (!Ctx) return null;
   try {
-    const ctx = new Ctx();
-    const notes = success ? [[523.25, 0, 0.12], [659.25, 0.13, 0.2]] : [[329.63, 0, 0.14], [246.94, 0.15, 0.22]];
+    audioCtx ??= new Ctx();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch {}
+  return audioCtx;
+}
+function playNotes(notes, volume) {
+  const ctx = audioCtx || unlockAudio();
+  if (!ctx) return;
+  try {
     for (const [freq, offset, length] of notes) {
       const osc = ctx.createOscillator(), gain = ctx.createGain(), t = ctx.currentTime + 0.01 + offset;
       osc.frequency.value = freq;
       gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.1, t + 0.025);
+      gain.gain.exponentialRampToValueAtTime(volume, t + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, t + length);
       osc.connect(gain).connect(ctx.destination);
       osc.start(t);
       osc.stop(t + length + 0.02);
     }
-    setTimeout(() => ctx.close(), 700);
   } catch {}
+}
+export function tone(success) {
+  playNotes(success ? [[523.25, 0, 0.12], [659.25, 0.13, 0.2]] : [[329.63, 0, 0.14], [246.94, 0.15, 0.22]], 0.1);
+}
+export function beep() {
+  playNotes([[880, 0, 0.16]], 0.15);
 }

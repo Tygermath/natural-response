@@ -1,4 +1,4 @@
-import { $, state, saveDb, situationOf, fillSelect, valueLabel, filterOptions, situationOptions, views, showView, speak, shadow, stopShadow, getRate, setRate, stopAudio, listen, stopListening, isListening, finishListening, canListen, tone, pendingCount } from "./app.mjs";
+import { $, state, saveDb, situationOf, fillSelect, valueLabel, filterOptions, situationOptions, views, showView, speak, shadow, stopShadow, getRate, setRate, unlockAudio, stopAudio, listen, stopListening, isListening, finishListening, canListen, tone, pendingCount } from "./app.mjs";
 import { filterRecords, compare, chunkRanges } from "./model.mjs";
 
 let deck = [], index = 0, flipped = false;
@@ -37,9 +37,11 @@ function toggleShadow() {
   if (!r) return;
   if ($("flash-shadow").getAttribute("aria-pressed") === "true") { stopShadow(); window.speechSynthesis?.cancel(); setShadowing(false); status(""); return; }
   stopListening();
+  unlockAudio(); // the beep plays later, outside this tap
   setShadowing(true);
+  const PHASES = { speak: "聽 Listen", recall: "回想 Recall", repeat: "嗶聲後跟述 Your turn" };
   shadow(r.reply, r.id, {
-    onStep: (i, total, phase) => status(phase === "speak" ? `第 ${i + 1}/${total} 句：聽 Listen` : `第 ${i + 1}/${total} 句：換你說 Your turn`),
+    onStep: (i, total, phase) => status(`第 ${i + 1}/${total} 句：${PHASES[phase]}`),
     onDone: () => { setShadowing(false); status("跟述完成。Done."); },
     onError: (msg) => { setShadowing(false); status(msg); },
   });
@@ -214,6 +216,7 @@ $("flash-shadow").onclick = toggleShadow;
 $("flash-rate").value = getRate();
 showRate();
 $("flash-rate").oninput = () => { setRate(Number($("flash-rate").value)); showRate(); };
+$("flash-rate-normal").onclick = () => { setRate(1); $("flash-rate").value = 1; showRate(); };
 $("flash-edit").onclick = () => { const r = card(); if (r) views.corpus.openRecord(r.id); };
 $("flash-empty-action").onclick = () => (state.db.records.length ? views.corpus.openPending() : showView("create"));
 document.addEventListener("keydown", (e) => {
