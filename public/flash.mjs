@@ -27,8 +27,8 @@ function deal() {
 function setFlipped(value) {
   flipped = value;
   $("flash-card").classList.toggle("flipped", value);
-  $("flash-front").inert = value; $("flash-front").setAttribute("aria-hidden", String(value));
-  $("flash-back").inert = !value; $("flash-back").setAttribute("aria-hidden", String(!value));
+  $("flash-front").setAttribute("aria-hidden", String(value));
+  $("flash-back").setAttribute("aria-hidden", String(!value));
 }
 function renderReply(text, chunks) {
   const el = $("flash-reply");
@@ -116,7 +116,7 @@ let micStartedAt = 0;
 // Tap once to start, tap again to finish early. Repeated taps right after starting are ignored,
 // so one touch can never start and immediately stop listening.
 function mic() {
-  if (flipped || !card()) return;
+  if (!card()) return;
   if (!canListen()) return status("此瀏覽器不支援語音辨識。" + DICTATION_HINT);
   if (Date.now() - micStartedAt < 800) return;
   if (isListening()) return finishListening();
@@ -161,9 +161,8 @@ async function setMastered() {
 // Tap on the card flips it; a horizontal swipe changes card. Controls inside the card are left alone.
 function attachGestures() {
   const el = $("flash-card");
-  const interactive = "button,input,textarea,select,label,a";
   let start = null, ignoreClickUntil = 0;
-  el.addEventListener("pointerdown", (e) => { start = e.isPrimary && !e.target.closest(interactive) ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null; });
+  el.addEventListener("pointerdown", (e) => { start = e.isPrimary ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null; });
   el.addEventListener("pointerup", (e) => {
     if (!start || start.id !== e.pointerId) return;
     const dx = e.clientX - start.x, dy = e.clientY - start.y;
@@ -172,7 +171,9 @@ function attachGestures() {
     else if (Math.hypot(dx, dy) > 15) ignoreClickUntil = Date.now() + 500;
   });
   el.addEventListener("pointercancel", () => { start = null; });
-  el.addEventListener("click", (e) => { if (Date.now() >= ignoreClickUntil && !e.target.closest(interactive)) flip(); });
+  // The card contains no controls, so any tap on it (that was not a swipe) flips it.
+  el.addEventListener("click", () => { if (Date.now() >= ignoreClickUntil) flip(); });
+  el.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); flip(); } });
 }
 
 views.flash = {

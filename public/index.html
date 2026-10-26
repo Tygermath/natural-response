@@ -19,27 +19,29 @@
   </div>
   <div id="flash-empty" hidden><p id="flash-empty-message"></p><button id="flash-empty-action" class="secondary"></button></div>
   <div id="flash-content" hidden>
-    <div class="perspective"><div id="flash-card" class="card">
+    <!-- The card holds text only. Controls live below it: form fields inside a 3D-flipping
+         card do not receive taps reliably on phones. -->
+    <div class="perspective"><div id="flash-card" class="card" role="button" tabindex="0" aria-label="翻面 Flip card">
       <div id="flash-front" class="face">
         <div class="card-meta"><span id="flash-position"></span><span class="tags"><span id="flash-intention" title="回應目的 Intention"></span><span id="flash-channel" title="溝通形式 Channel"></span></span></div>
         <h3 id="flash-title"></h3>
         <p id="flash-description" class="description"></p>
         <div class="cue">提示語塊 Chunks</div>
         <div id="flash-chunks" class="chunks"></div>
-        <div class="answer">
-          <textarea id="flash-answer" rows="2" placeholder="用英文說出或打出你的回應 Say or type your reply" aria-label="你的回應 Your reply"></textarea>
-          <div class="row"><button id="flash-mic" class="primary" aria-pressed="false">語音輸入<span class="en">Speak</span></button><button id="flash-check" class="secondary">核對<span class="en">Check</span></button></div>
-          <div id="flash-result" aria-live="polite"></div>
-        </div>
-        <div class="speech"><button class="secondary" data-rate=".75">慢速<span class="en">Slow</span></button><button class="secondary" data-rate="1">▷ 聽示範<span class="en">Listen</span></button><button class="secondary" data-rate="1.25">快速<span class="en">Fast</span></button></div>
+        <div class="flip-hint">點卡片看示範回應 Tap to see the reply</div>
       </div>
-      <div id="flash-back" class="face back" aria-hidden="true" inert>
+      <div id="flash-back" class="face back" aria-hidden="true">
         <p id="flash-reply" class="reply"></p>
-        <div class="speech"><button class="secondary" data-rate=".75">慢速<span class="en">Slow</span></button><button class="secondary" data-rate="1">▷ 聽示範<span class="en">Listen</span></button><button class="secondary" data-rate="1.25">快速<span class="en">Fast</span></button></div>
-        <div class="row end"><button id="flash-edit" class="quiet">編輯 Edit</button></div>
+        <div class="flip-hint">點卡片回到題目 Tap to go back</div>
       </div>
     </div></div>
-    <div class="flash-tools"><label class="check"><input type="checkbox" id="flash-mastered">熟練 Mastered</label><span class="hint">空白鍵／點卡片翻面 · 左右滑動或方向鍵換卡　Space / tap to flip · swipe or arrow keys to move</span></div>
+    <div class="answer">
+      <textarea id="flash-answer" rows="2" placeholder="用英文說出或打出你的回應 Say or type your reply" aria-label="你的回應 Your reply"></textarea>
+      <div class="row"><button id="flash-mic" class="primary" aria-pressed="false">語音輸入<span class="en">Speak</span></button><button id="flash-check" class="secondary">核對<span class="en">Check</span></button></div>
+      <div id="flash-result" aria-live="polite"></div>
+    </div>
+    <div class="speech"><button class="secondary" data-rate=".75">慢速<span class="en">Slow</span></button><button class="secondary" data-rate="1">▷ 聽示範<span class="en">Listen</span></button><button class="secondary" data-rate="1.25">快速<span class="en">Fast</span></button></div>
+    <div class="flash-tools"><label class="check"><input type="checkbox" id="flash-mastered">熟練 Mastered</label><span class="hint">空白鍵／點卡片翻面 · 左右滑動或方向鍵換卡　Space / tap to flip · swipe or arrow keys</span><button id="flash-edit" class="quiet">編輯 Edit</button></div>
     <div class="flash-nav"><button id="flash-prev" class="secondary">← 上一張</button><button id="flash-reorder" class="quiet">重新洗牌<span class="en">Shuffle</span></button><button id="flash-next" class="primary">下一張 →</button></div>
   </div>
   <p id="flash-status" class="status" role="status"></p>
