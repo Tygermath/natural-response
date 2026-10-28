@@ -5,6 +5,7 @@ import test from "node:test";
 // context that records beeps. Everything is timestamped.
 const t0 = performance.now();
 const events = [];
+const peaks = [];
 const at = () => Math.round(performance.now() - t0);
 let current = null;
 globalThis.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
@@ -22,7 +23,7 @@ globalThis.window = {
   AudioContext: class {
     state = "running"; currentTime = 0; destination = {};
     createOscillator() { return { frequency: {}, connect: (g) => g, start: () => events.push(["beep", at()]), stop() {} }; }
-    createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect: (d) => d }; }
+    createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime: (v) => { peaks.push(v); } }, connect: (d) => d }; }
   },
 };
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
@@ -53,4 +54,8 @@ test("speed is limited to 0.8–1.5", () => {
   assert.equal(getRate(), 1.5);
   globalThis.localStorage.getItem = () => "0.5";
   assert.equal(getRate(), 0.8);
+});
+
+test("the shadowing beep peaks at 90% of full volume", () => {
+  assert.equal(Math.max(...peaks), 0.9);
 });

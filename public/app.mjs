@@ -256,6 +256,8 @@ function playNotes(notes, volume) {
 export function tone(success) {
   playNotes(success ? [[523.25, 0, 0.12], [659.25, 0.13, 0.2]] : [[329.63, 0, 0.14], [246.94, 0.15, 0.22]], 0.1);
 }
+// Peak at 90% of full scale. Speech voices play at about full scale, and the browser gives
+// pages no way to measure their actual level, so this approximates 90% of the voice's peak.
 export function beep() {
-  playNotes([[880, 0, 0.16]], 0.15);
+  playNotes([[880, 0, 0.2]], 0.9);
 }
